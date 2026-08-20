@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open source firewall rule audit — finding shadowed, dead and over-permissive rules | Sentinel</title>
+<meta name="description" content="How dead firewall rules accumulate, how to find shadowed and over-permissive rules by hand on iptables, Cisco ASA, pfSense and FortiGate, and a free offline auditor.">
+<link rel="canonical" href="https://nizartuanku.github.io/firewall-rule-audit.html">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="Open source firewall rule audit — shadowed, dead and over-permissive rules">
+<meta property="og:description" content="Most firewalls carry rules that cannot match a packet. Not wrong rules. Dead ones.">
+<meta property="og:type" content="article">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">sentinel</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="expedition-alternative.html">Migration</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">Firewall hygiene</p>
+  <h1>Most firewalls carry rules that cannot match a packet</h1>
+
+  <p class="lede">Not wrong rules. Dead ones. They sit in the config, they appear in the audit export, and someone reads one while troubleshooting and concludes something false about their own network. This page covers how they accumulate, how to find them by hand on each platform, and where an auditor helps.</p>
+
+  <p class="meta">Written by a network security engineer · last reviewed 20 August 2026</p>
+
+  <h2>Why a rule goes dead</h2>
+
+  <p>Rules are evaluated in order. If a rule above already covers the entire address and port space of the one below it, the lower rule is never reached. Nothing errors. Nothing warns you. The rule simply stops being part of your policy while remaining part of your config.</p>
+
+  <p>The evaluation order that makes this happen is not identical everywhere, and the difference matters when you audit:</p>
+
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Platform</th><th>Evaluation</th><th>Audit implication</th></tr></thead>
+    <tbody>
+      <tr><td>iptables / nftables</td><td>First match wins within a chain</td><td>Also follow jumps between chains — shadowing can happen across a jump, not just within one list.</td></tr>
+      <tr><td>Cisco ASA</td><td>First match wins per ACL</td><td>Check which ACL is actually bound with <code>access-group</code>. Unbound ACLs are dead in a different way.</td></tr>
+      <tr><td>FortiGate</td><td>First match wins</td><td>Policies are per-VDOM and per interface pair; compare only within the same scope.</td></tr>
+      <tr><td>pfSense / OPNsense (pf)</td><td><strong>Last</strong> match wins — unless the rule is marked <code>quick</code></td><td>The GUI marks rules <code>quick</code> by default, so it behaves first-match. Hand-written rules in the raw ruleset may not.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note">
+    <p>That pf row is the one that catches people. If you audit a pfSense box by reading the rule list top-down with first-match assumptions, and some rules are not <code>quick</code>, your conclusions will be wrong in both directions — you will call live rules dead and dead rules live.</p>
+  </div>
+
+  <h2>How they accumulate</h2>
+
+  <p>Nobody sets out to build a config like this. It happens the same way everywhere:</p>
+
+  <ul>
+    <li>One emergency rule added at 2am, above everything, wide enough to definitely work.</li>
+    <li>One vendor port opened for an install and never closed.</li>
+    <li>One migration where the old ruleset was copied in "to be safe" and appended.</li>
+    <li>One ticket that asked for a /32 and got a /24 because the requester was not sure.</li>
+  </ul>
+
+  <p>A question worth asking wherever you work: <strong>when did anyone last delete a firewall rule, rather than add one?</strong> In most places the honest answer is that deletion requires a confidence nobody has, because nobody can prove what a rule is doing.</p>
+
+  <h2>What to look for</h2>
+
+  <h3>Shadowed rules</h3>
+  <p>A rule whose entire match space is covered by an earlier rule. It can never be reached. If the earlier rule has the opposite action, this is usually a real misconfiguration — someone believes traffic is permitted, or denied, and it is not.</p>
+
+  <h3>Redundant rules</h3>
+  <p>Covered by an earlier rule with the <em>same</em> action. Harmless to traffic, but it inflates the ruleset, slows review, and hides the rules that matter.</p>
+
+  <h3>Over-permissive rules</h3>
+  <p>Rules far broader than the change that created them. <code>any</code> in a source, a /16 where a /29 would do, a port range where one port would do. These are the rules that turn a small compromise into a large one.</p>
+
+  <h3>Drift</h3>
+  <p>What changed since the last known-good baseline, and who changed it. Drift detection is the only one of these four that catches a problem <em>as it appears</em> rather than months later.</p>
+
+  <h2>Doing it by hand</h2>
+
+  <p>For a small ruleset this is entirely reasonable:</p>
+
+  <ol>
+    <li><strong>Export the running config</strong>, not the documentation. They diverge.</li>
+    <li><strong>Expand every object and group to literals.</strong> Shadowing is invisible while rules refer to named groups whose contents overlap.</li>
+    <li><strong>Compare each rule against every rule above it</strong> — source set, destination set, protocol, port set. Full containment above means dead below.</li>
+    <li><strong>Check hit counters</strong> where the platform has them (<code>show access-list</code> on ASA, <code>iptables -nvL</code>, FortiGate policy hit count). A zero counter over a long window is a strong hint — but not proof, because the traffic may simply be seasonal.</li>
+    <li><strong>Diff against your baseline</strong> and reconcile every difference to a change ticket.</li>
+  </ol>
+
+  <p>Step 3 is where it stops being reasonable. Comparing every rule against every rule above it is quadratic, and with expanded object groups a few hundred rules becomes tens of thousands of set comparisons. That is the part worth automating — not because it is hard, but because humans do it inconsistently at scale.</p>
+
+  <h2>RuleHawk</h2>
+
+  <p>A self-hosted firewall config auditor. It parses iptables, Cisco ASA, pfSense/OPNsense and FortiGate configs, expands objects to literals, and reports shadowed rules, over-permissive allows, hygiene problems and drift against a baseline.</p>
+
+  <p><strong>It is fully offline.</strong> Zero outbound connections — it runs air-gapped, which matters because a firewall config is a map of your network and the last thing it should do is leave it.</p>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/nizartuanku/rulehawk">Source on GitHub</a>
+    <a class="btn" href="index.html">Other Sentinel tools</a>
+  </div>
+
+  <h3>Honest limits</h3>
+  <ul>
+    <li>It reads configuration, not traffic. It can tell you a rule is unreachable; it cannot tell you whether a reachable rule is <em>needed</em>. That still requires flow data and a conversation with whoever asked for it.</li>
+    <li>Four platforms. Others are not supported.</li>
+    <li>"Over-permissive" is a judgement against a threshold you set, not a fact. Expect to tune it before the output is useful.</li>
+    <li>It will not delete anything. Output is a report; the change is yours, through your change process.</li>
+  </ul>
+
+  <div class="note">
+    <p>If you are moving between vendors rather than cleaning up in place, that is a different job — see <a href="expedition-alternative.html">firewall migration after Expedition's end of life</a>.</p>
+  </div>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Sentinel — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
+    <p>Free editions are Apache-2.0 on GitHub. No telemetry in any edition.</p>
+  </div>
+</footer>
+
+</body>
+</html>

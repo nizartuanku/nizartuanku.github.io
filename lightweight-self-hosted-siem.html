@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lightweight self-hosted SIEM — correlation without the ingest bill | Sentinel</title>
+<meta name="description" content="Why small SIEM deployments fail, how a detector can stop firing without erroring, an honest comparison with Wazuh, Graylog, Security Onion and ELK, and a single-binary alternative.">
+<link rel="canonical" href="https://nizartuanku.github.io/lightweight-self-hosted-siem.html">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="Lightweight self-hosted SIEM — correlation without the ingest bill">
+<meta property="og:description" content="A detector that never fires looks exactly like a network that is safe.">
+<meta property="og:type" content="article">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">sentinel</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="thinkst-canary-alternative.html">Deception</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">Log correlation</p>
+  <h1>A detector that never fires looks exactly like a network that is safe</h1>
+
+  <p class="lede">Small SIEM deployments rarely fail loudly. They fail by running, processing, reporting healthy, and concluding nothing. This page covers why that happens, what the free options actually are, and where a single-binary alternative fits.</p>
+
+  <p class="meta">Written by a network security engineer · last reviewed 20 August 2026</p>
+
+  <h2>Three ways a small deployment dies</h2>
+
+  <h3>1. The ingest bill</h3>
+  <p>Priced-per-GB platforms create an incentive that runs against security: the cheapest configuration is the one that collects least. So verbose sources get dropped, retention gets trimmed to weeks, and the log you need during an incident is the one that aged out. A team ends up paying for a SIEM <em>and</em> not having the data.</p>
+
+  <h3>2. Alert fatigue</h3>
+  <p>A hundred single-line alerts per day, each ambiguous on its own, is not a detection capability. It is a queue nobody reads. The failure is not the volume — it is that each alert lacks the context needed to decide anything, so deciding gets deferred, and then permanently.</p>
+
+  <h3>3. The silent detector</h3>
+  <p>This is the one worth dwelling on, because it is invisible from every dashboard you have.</p>
+
+  <p>I hit it in my own code. One field was never filled: the timestamp on each parsed line. "Five failures in two minutes" quietly became "five failures, ever, since the beginning of time." The cooldown logic inverted. The chain that should have escalated never reached its window.</p>
+
+  <p>Nothing errored. It ran. It processed. It reported healthy. It simply never concluded anything — and a detector that has never fired is indistinguishable from a network where nothing has happened.</p>
+
+  <div class="note">
+    <p><strong>Two habits that catch this, whatever tool you run.</strong></p>
+    <p style="margin-top:.6rem">Reject log lines whose timestamp you could not parse — never silently default them to "now" or to zero. And replay a known-bad sequence on a schedule, then assert the alert appeared. A detector you have never seen fire is a detector you have never tested.</p>
+  </div>
+
+  <h2>The free options, honestly</h2>
+
+  <p>These are all good projects run by people who know what they are doing. Pick by shape, not by marketing.</p>
+
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Project</th><th>Shape</th><th>Best when</th><th>Cost of entry</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Wazuh</strong></td>
+        <td>Agent-based host security platform with a management server and indexer</td>
+        <td>You want endpoint visibility, FIM and compliance reporting as well as log analysis</td>
+        <td>Agents to deploy; an indexer to run and size</td>
+      </tr>
+      <tr>
+        <td><strong>Graylog</strong></td>
+        <td>Log management and search, with alerting on top</td>
+        <td>Search and retention are the primary need</td>
+        <td>Requires supporting datastores; open-source edition trails the enterprise one on some features</td>
+      </tr>
+      <tr>
+        <td><strong>Security Onion</strong></td>
+        <td>A whole distribution for network security monitoring</td>
+        <td>You want IDS, full packet capture and analyst tooling together</td>
+        <td>It is an appliance-scale commitment, not a service you add</td>
+      </tr>
+      <tr>
+        <td><strong>Elastic / ELK</strong></td>
+        <td>Build-your-own — the pieces are excellent, the assembly is yours</td>
+        <td>You have the time and want full control</td>
+        <td>Highest operational overhead of the four</td>
+      </tr>
+      <tr>
+        <td><strong>Loglight</strong><br><span style="color:var(--fg-muted);font-size:.9em">this project</span></td>
+        <td>One Go binary with SQLite. Ingest, detect, correlate</td>
+        <td>One person is responsible and there is no budget for a cluster</td>
+        <td>Deliberately small — and correspondingly limited, see below</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>If you have a team and an infrastructure budget, several of the options above will take you further than Loglight will. The case for something smaller is narrow and specific: <strong>a SIEM nobody has time to operate detects nothing at all</strong>, and a one-person shop that keeps deferring the Elastic cluster has zero detection in the meantime.</p>
+
+  <h2>Correlation is the part that matters</h2>
+
+  <p>Three separate alerts:</p>
+
+  <pre><code>10:02  port scan from 203.0.113.44
+10:19  47 failed SSH logins from 203.0.113.44
+10:26  successful SSH login from 203.0.113.44</code></pre>
+
+  <p>Read individually, the first two are internet background noise and the third is a normal event. Read together, they are one intrusion with a timeline, and the third line is the one that ends the argument.</p>
+
+  <p>That is the whole job: not producing more alerts, but joining the ones you already have so a human sees a story instead of three shrugs.</p>
+
+  <h2>Loglight</h2>
+
+  <p>Ingests syslog, plain files, journald, Docker and Windows events. Detects brute force, scanning, exfiltration patterns and new-admin events, and correlates them into kill-chain incidents. One binary, SQLite storage, embedded UI. No telemetry, no outbound connections.</p>
+
+  <p>Every other Sentinel tool can emit findings as RFC 3164 syslog, so a <a href="thinkst-canary-alternative.html">Decoy</a> trip from an address Loglight already saw scanning becomes one critical incident with the timeline attached, rather than two alerts you have to join up yourself. There is nothing Sentinel-specific about the format — any collector works.</p>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/nizartuanku/loglight">Source on GitHub</a>
+    <a class="btn" href="index.html">Other Sentinel tools</a>
+  </div>
+
+  <h3>Honest limits</h3>
+  <ul>
+    <li>SQLite on one host. This is not a clustered platform and will not pretend to be — there is a volume above which you need a real indexer.</li>
+    <li>No endpoint agent, no file integrity monitoring, no packet capture. If you need those, Wazuh or Security Onion are the better answer.</li>
+    <li>Detection content is a starting set, not a maintained threat-intel feed.</li>
+    <li>Compliance reporting is not a feature. If an auditor needs a specific report format, check before you commit.</li>
+  </ul>
+
+  <div class="note">
+    <p>Related: <a href="thinkst-canary-alternative.html">self-hosted deception</a> — the highest-signal input you can feed a correlation engine, because a touched decoy is almost never a false alarm.</p>
+  </div>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Sentinel — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
+    <p>Free editions are Apache-2.0 on GitHub. No telemetry in any edition.</p>
+  </div>
+</footer>
+
+</body>
+</html>
