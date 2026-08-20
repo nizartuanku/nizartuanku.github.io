@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Self-hosted attack surface discovery — dangling DNS and the hosts you forgot | Sentinel</title>
+<meta name="description" content="Your attack surface is not what you deployed, it is what you forgot to decommission. How subdomain takeover works, how to enumerate your own exposure, and a free offline tool that only scans what you can prove you own.">
+<link rel="canonical" href="https://nizartuanku.github.io/attack-surface-discovery.html">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="Self-hosted attack surface discovery">
+<meta property="og:description" content="Attackers do not consult your inventory. They build their own — which means theirs is more accurate.">
+<meta property="og:type" content="article">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">sentinel</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="tls-certificate-monitoring.html">TLS</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">Exposure management</p>
+  <h1>Your attack surface is what you forgot to decommission</h1>
+
+  <p class="lede">The staging host from a launch two years ago. The subdomain still pointing at a service you stopped paying for. Nobody monitors them, because nobody remembers they exist — which is precisely why they are still reachable.</p>
+
+  <p class="meta">Written by a network security engineer · last reviewed 20 August 2026</p>
+
+  <h2>Why their list is better than yours</h2>
+
+  <p>Your inventory is a record of what you meant to deploy. It is maintained by people with other priorities, updated when someone remembers, and it has no mechanism for noticing what was never removed.</p>
+
+  <p>An attacker does not consult it. They enumerate from the outside — certificate transparency logs, passive DNS, search engines, brute-forced subdomain lists, cloud IP ranges — and build their own. Their list is generated fresh from what is actually reachable today. Yours is a document.</p>
+
+  <p>That asymmetry is the whole problem, and it is why "we have an asset register" does not close it.</p>
+
+  <h2>Dangling DNS and subdomain takeover</h2>
+
+  <p>The mechanism most worth understanding, because it turns a forgotten record into someone else's foothold on your domain.</p>
+
+  <ol>
+    <li>You point <code>promo.example.com</code> at a hosted service — a static host, an app platform, a storage bucket, a helpdesk.</li>
+    <li>Later the project ends. Someone deletes the service. <strong>Nobody deletes the DNS record.</strong></li>
+    <li>The record still resolves to the provider, but the provider no longer has a tenant claiming that name.</li>
+    <li>Someone else registers that name on the same provider, and now serves content on your subdomain.</li>
+  </ol>
+
+  <p>The result is a page on your real domain, under your real certificate story, controlled by someone else. It is a good phishing platform, it can receive cookies scoped to the parent domain in some configurations, and it inherits whatever trust your brand has.</p>
+
+  <div class="note">
+    <p><strong>Decommissioning means removing the DNS record too, not just the server.</strong> That single sentence, added to your teardown checklist, prevents most of this class of problem.</p>
+  </div>
+
+  <h2>How to enumerate your own exposure</h2>
+
+  <p>Do this the way a stranger would, on a schedule:</p>
+
+  <ul>
+    <li><strong>Certificate transparency logs</strong> — every publicly trusted certificate is logged. This is the highest-yield source, and it surfaces hostnames nobody documented, because someone had to request a certificate for them.</li>
+    <li><strong>Passive DNS</strong> — historical records, including ones that no longer resolve but did.</li>
+    <li><strong>Your own DNS zones</strong> — the authoritative list of what you publish, which is the one you compare everything else against.</li>
+    <li><strong>Cloud accounts</strong> — public IPs, load balancers, buckets and functions, per account and per region. The forgotten region is a recurring theme.</li>
+    <li><strong>Port and service checks</strong> on what you found, to see what is actually listening rather than what should be.</li>
+  </ul>
+
+  <p>Then reconcile: anything reachable that is not in your inventory is either an asset you forgot or one you never knew about. Both are findings.</p>
+
+  <h2>Scan only what you own</h2>
+
+  <p>This is a legal boundary, not a best practice.</p>
+
+  <p>Enumerating and probing infrastructure you do not control can constitute unauthorised access depending on jurisdiction, and "I was only checking" is not a defence anyone wants to test. It is also easy to do accidentally — a subdomain can point at a third party's infrastructure, and scanning it means scanning them.</p>
+
+  <p>Attack Surface Monitor will not probe a domain until ownership has been verified, by DNS TXT record or an HTTP token. That gate is deliberate and cannot be skipped. It is the difference between a monitoring tool and a scanner.</p>
+
+  <h2>Attack Surface Monitor</h2>
+
+  <p>Self-hosted discovery and exposure monitoring. Enumerates your verified domains from the outside, tracks what changes, and flags dangling records and newly exposed services. Single Go binary, SQLite, embedded UI. Findings stay on your infrastructure — which matters, because a complete map of your exposure is exactly the document you least want in someone else's cloud.</p>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/nizartuanku/attack-surface-monitor">Source on GitHub</a>
+    <a class="btn" href="index.html">Other Sentinel tools</a>
+  </div>
+
+  <h3>Honest limits</h3>
+  <ul>
+    <li>Ownership verification is required. If you cannot prove control of a domain, the tool will not scan it — including domains you genuinely own but cannot edit DNS for.</li>
+    <li>It sees what is reachable, not what is safe. A discovered host is an input to a risk decision, not a verdict.</li>
+    <li>Discovery is never complete. Any enumeration finds a subset; treat a clean run as "nothing new found", never as "nothing exists".</li>
+    <li>It does not exploit anything, and it will not tell you whether a finding is vulnerable — only that it is there. Pair it with <a href="cve-prioritisation-kev-epss.html">CVE prioritisation</a>.</li>
+  </ul>
+
+  <div class="note">
+    <p>Two related jobs: <a href="tls-certificate-monitoring.html">TLS monitoring</a> for the certificates on the hosts you find, and <a href="thinkst-canary-alternative.html">deception</a> for the case where someone is already past the perimeter.</p>
+  </div>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Sentinel — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
+    <p>Free editions are Apache-2.0 on GitHub. No telemetry in any edition.</p>
+  </div>
+</footer>
+
+</body>
+</html>

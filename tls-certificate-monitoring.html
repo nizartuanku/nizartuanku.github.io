@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TLS certificate monitoring beyond expiry — self-hosted | Sentinel</title>
+<meta name="description" content="Expiry is the only certificate failure with a date attached, so it is the only one most monitoring catches. Hostname mismatch, missing intermediates, weak keys and legacy protocol acceptance are the quiet ones.">
+<link rel="canonical" href="https://nizartuanku.github.io/tls-certificate-monitoring.html">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="TLS certificate monitoring beyond expiry">
+<meta property="og:description" content="Your certificate is valid and still wrong. 'Not expired' is the lowest bar it can clear.">
+<meta property="og:type" content="article">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">sentinel</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="attack-surface-discovery.html">Attack surface</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">TLS</p>
+  <h1>Your certificate is valid and still wrong</h1>
+
+  <p class="lede">Expiry is the failure everyone monitors, because it is the only one with a date attached. The others do not announce themselves — they wait until a client that is stricter than your browser tries to connect.</p>
+
+  <p class="meta">Written by a network security engineer · last reviewed 20 August 2026</p>
+
+  <h2>The failures that have no date</h2>
+
+  <h3>Hostname mismatch</h3>
+  <p>The certificate is valid, in date, correctly signed — and does not cover the name being requested. Common after a service moves behind a new hostname, or when a SAN list was updated for the apex but not the <code>www</code> variant.</p>
+
+  <h3>A chain missing its intermediate</h3>
+  <p>This is the one that produces the most confusing tickets, because <strong>it often works in your browser and fails everywhere else</strong>. Browsers can fetch a missing intermediate over AIA or fall back to a cached copy. Command-line clients, mobile SDKs, Java stacks and IoT devices frequently cannot. So the site looks fine to the person testing it and breaks for an integration partner.</p>
+  <p>Test with <code>openssl s_client -connect host:443 -showcerts</code> against a machine that has never seen the chain, not with a browser you use daily.</p>
+
+  <h3>Obsolete protocols behind a perfect certificate</h3>
+  <p>A host can present a flawless certificate and still negotiate TLS 1.0. The certificate check passes; the connection is still weak. Certificate monitoring and protocol monitoring are different jobs, and most tools only do the first.</p>
+
+  <h3>Weak keys and legacy signatures</h3>
+  <p>These survive renewals. A renewal reuses the existing key and CSR unless someone deliberately rotates, so an undersized key from years ago quietly persists through every renewal that nobody actually reviewed.</p>
+
+  <h3>Renewal automation that stopped</h3>
+  <p>ACME automation fails silently more often than people expect — a changed DNS provider credential, a moved webroot, a firewall rule that broke the challenge. The renewal has not failed loudly; it has simply not run. You find out thirty days later, or you do not.</p>
+
+  <div class="note">
+    <p><strong>The check worth adding first</strong>, whatever tooling you use: alert on <em>certificate age</em>, not only on days-to-expiry. A certificate that should renew every 90 days and is now 75 days old tells you the automation is late — while there is still time to fix it calmly.</p>
+  </div>
+
+  <h2>What to monitor, in priority order</h2>
+
+  <ol>
+    <li><strong>Expiry</strong> — with enough lead time to act, not a 24-hour warning.</li>
+    <li><strong>Renewal freshness</strong> — as above; catches broken automation before it becomes an outage.</li>
+    <li><strong>Hostname coverage</strong> — every name you actually serve, including the ones nobody remembers adding.</li>
+    <li><strong>Full chain as served</strong> — validated from a machine with no cache.</li>
+    <li><strong>Negotiated protocol and cipher</strong> — what the server actually agrees to, not what the config says.</li>
+    <li><strong>Key size and signature algorithm</strong> — checked at every renewal, not once at issuance.</li>
+  </ol>
+
+  <h2>CertWatch</h2>
+
+  <p>Self-hosted TLS and certificate monitoring with configuration grading — it checks the list above rather than stopping at the expiry date. Single Go binary, SQLite, embedded UI. No telemetry, and it runs entirely on your infrastructure, which matters when the list of hostnames you monitor is itself sensitive.</p>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/nizartuanku/certwatch">Source on GitHub</a>
+    <a class="btn" href="index.html">Other Sentinel tools</a>
+  </div>
+
+  <h3>Honest limits</h3>
+  <ul>
+    <li>It observes from wherever you run it. A host reachable only from inside a segment needs a probe inside that segment.</li>
+    <li>It monitors; it does not renew. Your ACME client keeps that job.</li>
+    <li>Grading is opinionated. Disagree with a grade and the underlying facts are still shown — check those, not the letter.</li>
+    <li>It will not find hosts you did not tell it about. That is a different tool — see below.</li>
+  </ul>
+
+  <div class="note">
+    <p>The certificate you are least likely to be monitoring is the one on the host you forgot you had: <a href="attack-surface-discovery.html">attack surface discovery</a>.</p>
+  </div>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Sentinel — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
+    <p>Free editions are Apache-2.0 on GitHub. No telemetry in any edition.</p>
+  </div>
+</footer>
+
+</body>
+</html>
