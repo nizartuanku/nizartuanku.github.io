@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sentinel — self-hosted security tools</title>
+<meta name="description" content="Seven self-hosted security tools on one Go core: firewall migration and auditing, attack surface discovery, canary tokens, CVE prioritisation, TLS monitoring and log correlation. Free editions are Apache-2.0. No telemetry.">
+<link rel="canonical" href="https://nizartuanku.github.io/">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="Sentinel — self-hosted security tools">
+<meta property="og:description" content="Seven self-hosted security tools on one Go core. Single binary, SQLite, offline. Free editions Apache-2.0.">
+<meta property="og:type" content="website">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">sentinel</a>
+    <nav>
+      <a href="#tools">Tools</a>
+      <a href="#how">How they are built</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">Self-hosted security tooling</p>
+  <h1>Tools I needed, so I built them.</h1>
+
+  <p class="lede">I have spent nineteen years securing enterprise networks. Most of what follows started as a script I wrote because the commercial option cost more than the problem, or ran in someone else's cloud, or only converted in one direction. Each one is a single Go binary with SQLite storage. Nothing phones home.</p>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/nizartuanku">All source on GitHub</a>
+    <a class="btn" href="expedition-alternative.html">Firewall migration after Expedition</a>
+  </div>
+
+  <h2 id="tools">The line</h2>
+
+  <div class="cards">
+
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/ruleforge">RuleForge</a></h3>
+      <p>Multivendor firewall migration. Converts between any two of Cisco ASA, FTD, PAN-OS, FortiGate and Check Point — twenty directions, through a vendor-neutral model.</p>
+    </div>
+
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/rulehawk">RuleHawk</a></h3>
+      <p>Firewall config auditing. Finds rules shadowed by anything above them, allows far broader than the ticket that created them, and drift against a baseline.</p>
+    </div>
+
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/decoy">Decoy</a></h3>
+      <p>Canary tokens and honeypots. Bait that no legitimate user has a reason to touch — so when one trips, it is almost never a false alarm.</p>
+    </div>
+
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/attack-surface-monitor">Attack Surface Monitor</a></h3>
+      <p>Enumerates your exposure the way a stranger would, on a schedule. Catches the staging host and the dangling DNS record nobody remembers.</p>
+    </div>
+
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/patchlight">Patchlight</a></h3>
+      <p>CVE prioritisation. Ranks your actual inventory by CISA KEV and EPSS, not by CVSS alone. Patch what is being exploited, not what scores loudest.</p>
+    </div>
+
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/certwatch">CertWatch</a></h3>
+      <p>TLS monitoring past the expiry date — hostname mismatch, broken chains, weak keys, and hosts still accepting obsolete protocols behind a valid certificate.</p>
+    </div>
+
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/loglight">Loglight</a></h3>
+      <p>SIEM-lite. Ingests syslog, files, journald, Docker and Windows events, and correlates a scan followed by brute force followed by a successful login into one incident.</p>
+    </div>
+
+  </div>
+
+  <p>Every tool can emit its findings as RFC 3164 syslog, which is how they feed each other — or feed whatever collector you already run. There is nothing Sentinel-specific about the format.</p>
+
+  <h2>Written up in detail</h2>
+
+  <ul>
+    <li><a href="expedition-alternative.html">Firewall migration after Expedition's end of life</a> — what each vendor tool can and cannot do, and how to do the conversion by hand.</li>
+    <li><a href="thinkst-canary-alternative.html">Self-hosted alternatives to Thinkst Canary</a> — what deception buys you, what it does not, and where to place bait.</li>
+  </ul>
+
+  <h2 id="how">How these tools are built</h2>
+
+  <p>Not marketing claims — constraints I hold myself to, so you can check whether I kept them.</p>
+
+  <h3>Your data does not leave your network</h3>
+  <p>Every tool runs on your infrastructure as one binary. There is no telemetry, no analytics, no usage reporting. Licence validation is offline Ed25519 cryptography: a key is verified locally and the software never needs to reach any server of mine. An expired key does not disarm anything — it returns the tool to free limits.</p>
+
+  <h3>The free edition is genuinely usable</h3>
+  <p>Free editions are Apache-2.0 and complete enough to solve a real problem, not a demo with the working parts removed. Where a limit exists it is stated on the repository page before you install anything.</p>
+
+  <h3>Nothing is silently dropped</h3>
+  <p>Where a tool cannot handle something, it says so and shows you the source line. A migration that quietly discards a rule, or a detector that quietly fails to parse a timestamp, is worse than no tool at all — because it leaves you confident and wrong.</p>
+
+  <h3>Limits are published next to the features</h3>
+  <p>Every repository has an “honest limits” section covering what the tool does not do. Deception is not prevention. A vulnerability ranking is not a patch. An attack surface scan sees what is reachable, not what is safe.</p>
+
+  <h2>Who wrote this</h2>
+
+  <p>Nizar Tuanku — network security engineer, nineteen years, mostly enterprise networks and Cisco security. I build these in the evenings because I keep meeting the same problems and wanting the same tools.</p>
+
+  <p>Source, issues and pull requests: <a href="https://github.com/nizartuanku">github.com/nizartuanku</a>. Paid editions, for the cases where the free limits are not enough, are on <a href="https://whop.com/nizar-tuanku?utm_source=github_pages&amp;utm_medium=hub">Whop</a>.</p>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Free editions Apache-2.0 · single Go binary · SQLite · no telemetry in any edition.</p>
+    <p><a href="https://github.com/nizartuanku">GitHub</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

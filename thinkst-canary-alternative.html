@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Self-hosted alternative to Thinkst Canary — deception on your own infrastructure | Sentinel</title>
+<meta name="description" content="An honest look at self-hosted deception: what Canarytokens, OpenCanary and Thinkst Canary each give you, where a self-hosted option fits, and how to place bait so it actually fires.">
+<link rel="canonical" href="https://nizartuanku.github.io/thinkst-canary-alternative.html">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="Self-hosted alternative to Thinkst Canary">
+<meta property="og:description" content="What deception buys you, what it does not, and where to place bait so it actually fires.">
+<meta property="og:type" content="article">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">sentinel</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">Deception</p>
+  <h1>Self-hosted deception: where it fits, and where it does not</h1>
+
+  <p class="lede">A successful login tells you almost nothing. A touched decoy tells you almost everything. This page covers what the deception options actually are — including the free ones from Thinkst themselves — and how to place bait so that it fires when it matters.</p>
+
+  <p class="meta">Written by a network security engineer · last reviewed 20 August 2026</p>
+
+  <div class="note">
+    <p><strong>Credit where it is due.</strong> Thinkst did more than anyone to make deception mainstream, and they give away two of the best tools in the category. If your budget covers their appliance, buy it — it is excellent, and this page is not an argument against it.</p>
+  </div>
+
+  <h2>Why deception works when signatures struggle</h2>
+
+  <p>Detection by signature asks: <em>does this behaviour look bad?</em> The answer is usually ambiguous, which is why alert fatigue exists and why analysts stop reading the queue.</p>
+
+  <p>Deception asks a different question: <em>did anyone touch the thing that has no legitimate use?</em> A link nobody should open. A share nobody should browse. A port nobody should connect to. A real user has no reason to go there, so a trip is almost never a false alarm.</p>
+
+  <p>You do not hunt the needle in the haystack. You plant a needle that screams.</p>
+
+  <p>The practical consequence is signal-to-noise. A honeypot alert does not need triage in the way a SIEM correlation does — the question is not <em>is this real?</em> but <em>who, and how far in?</em></p>
+
+  <h2>The options</h2>
+
+  <div class="tablewrap">
+  <table>
+    <thead>
+      <tr><th>Option</th><th>Runs where</th><th>Covers</th><th>Cost</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Canarytokens.org</strong><br><span style="color:var(--fg-muted);font-size:.9em">Thinkst, free</span></td>
+        <td class="n">Thinkst's servers</td>
+        <td>Tokens only — URLs, documents, DNS and more</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><strong>OpenCanary</strong><br><span style="color:var(--fg-muted);font-size:.9em">Thinkst, open source</span></td>
+        <td class="y">Yours</td>
+        <td>Honeypot services. Tokens and console are not included</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><strong>Thinkst Canary</strong><br><span style="color:var(--fg-muted);font-size:.9em">commercial</span></td>
+        <td>Devices yours, console hosted</td>
+        <td>Devices, tokens and console together, supported</td>
+        <td>Roughly <strong>$5k–$14k per year</strong> depending on device count<sup><a href="#note-price">1</a></sup></td>
+      </tr>
+      <tr>
+        <td><strong>Decoy</strong><br><span style="color:var(--fg-muted);font-size:.9em">this project</span></td>
+        <td class="y">Yours, entirely</td>
+        <td>Tokens, document beacons, honeypot services and console in one binary</td>
+        <td>Free edition Apache-2.0</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Read that table for what it is: three good options and one more. The self-hosted case is narrower than “it is cheaper”. It matters when <strong>the trip evidence itself is sensitive</strong> — when a token firing reveals an internal hostname, a project name, or a client's infrastructure that you are contractually not allowed to send anywhere. If that is not your situation, the free hosted tokens are excellent and you should use them.</p>
+
+  <h2>Decoy</h2>
+
+  <p>One Go binary. Tokens, document beacons, honeypot listeners and the console in the same process, on your infrastructure. Trips, evidence and alerts never leave your network. Licence validation is offline Ed25519 — nothing phones home in either edition.</p>
+
+  <ul>
+    <li><strong>Web/URL tokens</strong> — unguessable links that alert the instant they are fetched.</li>
+    <li><strong>Document beacons</strong> — a .docx, .xlsx or .pdf that reports the opener's IP the moment it is opened.</li>
+    <li><strong>Honeypot services</strong> — fake SSH, RDP, admin-panel and database ports that log every connection and every credential tried.</li>
+    <li><strong>DNS and cloud-credential traps</strong> — catch scanners that resolve before they connect, and attackers harvesting fake keys.</li>
+  </ul>
+
+  <p>Findings can be emitted as RFC 3164 syslog, so a Decoy trip lands next to your existing detections rather than in a separate inbox.</p>
+
+  <h3>Where to place bait so it actually fires</h3>
+
+  <p>Coverage equals placement. This is the part that decides whether deception works for you, and no product can do it for you.</p>
+
+  <ul>
+    <li><strong>Somewhere only lateral movement would reach</strong> — not the front door. Bait on your perimeter catches internet background noise and teaches you nothing.</li>
+    <li><strong>Named like something worth stealing, not like a trap.</strong> <code>backup-keys</code>, <code>payroll-2026.xlsx</code>, <code>vpn-config-old</code>. Never <code>honeypot</code>, never <code>canary</code>.</li>
+    <li><strong>Route the alert somewhere a human reads.</strong> One trip is not noise, and it should not land in a channel nobody opens.</li>
+    <li><strong>Tell your own team it exists</strong>, at least at the right level. A trip investigated as a breach when it was an over-curious junior admin costs everyone a night.</li>
+  </ul>
+
+  <h3>Honest limits</h3>
+  <ul>
+    <li>Deception is detection, not prevention. It tells you someone is in; it does not keep them out.</li>
+    <li>A trap only fires if an intruder finds it. Bad placement means silence, and silence looks exactly like safety.</li>
+    <li>Document beacons fire only in clients that fetch remote content — many, not all.</li>
+    <li>DNS tokens and full cloud-credential-misuse detection need external setup: a delegated zone, and CloudTrail on the AWS side.</li>
+    <li>Not a replacement for EDR or a SIEM. A high-signal complement to both.</li>
+  </ul>
+
+  <div class="warn">
+    <p><strong>Plant only in your own systems.</strong> Decoy is bait for your environment, to catch someone in your environment. It is passive — it records who came, it never attacks back. Read <code>SAFETY.md</code> before you start; it is short, and it keeps you on the right side of the law.</p>
+  </div>
+
+  <h3>Run it</h3>
+
+  <pre><code>git clone https://github.com/nizartuanku/decoy
+cd decoy
+# see the repository README for the current install command
+# dashboard on http://127.0.0.1:8424</code></pre>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/nizartuanku/decoy">Source on GitHub</a>
+    <a class="btn" href="index.html">Other Sentinel tools</a>
+  </div>
+
+  <p id="note-price" style="font-size:.88rem;color:var(--fg-muted);margin-top:2.4rem">
+    <sup>1</sup> Thinkst does not publish list pricing. The range quoted is from aggregated buyer transaction data reported by <a href="https://www.vendr.com/marketplace/thinkst-canary">Vendr</a> (median around $9,900 per year, low end around $5,100, high end around $13,620). Treat it as an order of magnitude, not a quote — your number depends on device count and contract term.
+  </p>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Sentinel — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
+    <p>Free editions are Apache-2.0 on GitHub. No telemetry in any edition.</p>
+  </div>
+</footer>
+
+</body>
+</html>

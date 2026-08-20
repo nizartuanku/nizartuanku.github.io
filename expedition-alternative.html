@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expedition alternative — free firewall migration after Palo Alto's EOL | Sentinel</title>
+<meta name="description" content="Palo Alto ended support for Expedition in January 2025. Here is what still exists for firewall config migration, what each tool can and cannot do, and a free self-hosted option that converts between any two of five vendors.">
+<link rel="canonical" href="https://nizartuanku.github.io/expedition-alternative.html">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="Expedition alternative — free firewall migration after Palo Alto's EOL">
+<meta property="og:description" content="Every vendor migration tool converts one direction: into that vendor. Here is the full landscape after Expedition's end of life, and a vendor-neutral option.">
+<meta property="og:type" content="article">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">sentinel</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">Firewall migration</p>
+  <h1>Expedition is end-of-life. Here is what actually replaces it.</h1>
+
+  <p class="lede">Palo Alto Networks stopped supporting Expedition in January 2025. The official replacement for configuration migration is a paid professional service. This page lays out every option that still exists, what each one can and cannot do, and how to do the conversion by hand if you would rather not trust a tool at all.</p>
+
+  <p class="meta">Written by a network security engineer · last reviewed 20 August 2026</p>
+
+  <h2>What actually happened</h2>
+
+  <p>Palo Alto's announcement is unambiguous:</p>
+
+  <div class="warn">
+    <p><strong>“Starting from January 2025, Palo Alto Networks will no longer support the Expedition tool, including all versions of both Expedition1 and Expedition2 branches.”</strong></p>
+    <p style="margin-top:.6rem;font-size:.88rem">— <a href="https://live.paloaltonetworks.com/t5/expedition-articles/important-update-end-of-life-announcement-for-palo-alto-networks/ta-p/589642">End-of-Life Announcement, Palo Alto Networks LIVEcommunity</a></p>
+  </div>
+
+  <p>Two replacements were named:</p>
+
+  <ul>
+    <li><strong>Strata Cloud Manager</strong> — cleanup and optimisation features are planned, but no release date was given for functionality comparable to Expedition's config migration.</li>
+    <li><strong>Professional Services / Migration Factory</strong> — a <em>paid engagement</em> using “automation, tactical scripts, and custom solutions”.</li>
+  </ul>
+
+  <p>So the free path disappeared and the supported path became billable. If you have a migration scheduled and no budget line for professional services, that is the gap you are standing in.</p>
+
+  <h2>The tools that still exist</h2>
+
+  <p>All of the vendor migration tools are still maintained. The thing worth noticing is not that they are bad — they are good — it is which direction each one runs.</p>
+
+  <div class="tablewrap">
+  <table>
+    <thead>
+      <tr><th>Tool</th><th>Vendor</th><th>Sources it reads</th><th>Target it writes</th><th>Cost</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Firewall Migration Tool</strong> (FMT)</td>
+        <td>Cisco</td>
+        <td>ASA, FirePOWER, Check Point, Fortinet, Palo Alto</td>
+        <td class="n">Cisco FTD only</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><strong>FortiConverter</strong></td>
+        <td>Fortinet</td>
+        <td>several</td>
+        <td class="n">FortiGate only</td>
+        <td>Licensed</td>
+      </tr>
+      <tr>
+        <td><strong>SmartMove</strong></td>
+        <td>Check Point</td>
+        <td>Cisco, Fortinet, Juniper, PAN</td>
+        <td class="n">Check Point only</td>
+        <td>Free</td>
+      </tr>
+      <tr>
+        <td><strong>Expedition</strong></td>
+        <td>Palo Alto</td>
+        <td>several</td>
+        <td class="n">PAN-OS only</td>
+        <td><strong>End-of-life Jan 2025</strong></td>
+      </tr>
+      <tr>
+        <td><strong>RuleForge</strong></td>
+        <td>independent</td>
+        <td>ASA, FTD, PAN-OS, FortiOS, Check Point</td>
+        <td class="y">any of the five</td>
+        <td>Free edition, Apache-2.0</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note">
+    <p><strong>The structural point.</strong> Every vendor tool converts <em>into</em> that vendor. This is not an oversight — a vendor has no commercial reason to help you leave. Which means the one direction nobody builds for you is the one you need when you are moving away from a platform, consolidating two estates after an acquisition, or evaluating a replacement before you commit.</p>
+  </div>
+
+  <h2>Doing it by hand — the parts people get wrong</h2>
+
+  <p>You do not need a tool. Plenty of migrations are done manually, and if the estate is small that is a reasonable choice. What follows is the order that avoids the usual rework, whichever direction you are going.</p>
+
+  <h3>1. Inventory before you translate anything</h3>
+  <p>Interfaces first — including VLAN subinterfaces, port-channels and bridge groups — then zones, then objects and groups, then rules, then NAT, then routes. Translating rules before the interface and zone map is settled is the single most common cause of a rebuild, because rule scope is expressed in terms of zones that do not exist yet on the target.</p>
+
+  <h3>2. Decide the zone map explicitly, on paper</h3>
+  <p>ASA works in named interfaces with security levels. PAN-OS and FortiOS work in zones. Check Point works in a policy package with an implicit topology. These do not map one-to-one, and the mapping is a design decision, not a mechanical one. Write it down and get it reviewed before any conversion runs.</p>
+
+  <h3>3. Expect NAT to be the hard part</h3>
+  <p>Source NAT, destination NAT, static bidirectional and policy NAT each have a different shape on each platform, and ASA's twice-NAT in particular has no single clean equivalent. Convert NAT last, and verify each rule against the original by hand.</p>
+
+  <h3>4. Do not silently drop what you cannot convert</h3>
+  <p>VPN configuration, certificates, dynamic routing, HA pairing, and application/URL-filtering features generally do not convert cleanly. The failure mode that hurts is not “this did not convert” — it is “this did not convert and nobody was told”. Keep an explicit list of every element that needs manual rebuild, with the source line it came from.</p>
+
+  <h3>5. Verify by re-parsing, not by reading</h3>
+  <p>Once you have the target config, feed it back through a parser and diff it against what you intended. Reading a 400-rule config and believing it is correct is not verification.</p>
+
+  <h2>RuleForge</h2>
+
+  <p>I am a network security engineer and I have done these migrations. RuleForge is the tool I wanted to exist: it converts between <strong>any two of five vendors</strong> — Cisco ASA, Cisco FTD, Palo Alto PAN-OS, Fortinet FortiGate and Check Point — through a vendor-neutral intermediate model. Twenty directions, not one.</p>
+
+  <p>It runs as a single Go binary with SQLite storage and an embedded UI. It is offline by design: no telemetry, no outbound connections, nothing leaves the host. Your firewall configuration is the most sensitive text file in your estate and it has no business being uploaded anywhere — including to me.</p>
+
+  <p>The pipeline follows the manual order above, deliberately: <strong>Analyze → Map → Convert → Review</strong>. Conversion never runs on an unseen interface/zone map; you edit and approve it first. Every job produces a Conversion Process Report listing every element and its outcome, as a self-contained HTML file that prints to PDF.</p>
+
+  <h3>What the free edition does, and where it stops</h3>
+
+  <p>Stated plainly, because you should know before you spend an hour on it:</p>
+
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th></th><th>Free (Apache-2.0)</th><th>Paid</th></tr></thead>
+    <tbody>
+      <tr><td>Deep analysis, all five vendors</td><td class="y">Full</td><td class="y">Full</td></tr>
+      <tr><td>Conversion</td><td>up to <strong>50 rules per job</strong></td><td>Unlimited</td></tr>
+      <tr><td>Multi-context / Panorama / VDOM</td><td class="n">—</td><td class="y">Yes</td></tr>
+      <tr><td>Conversion Process Report</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+      <tr><td>Round-trip verification</td><td class="n">—</td><td class="y">Yes</td></tr>
+      <tr><td>Stored jobs</td><td>1</td><td>History</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The 50-rule cap is enough to run your own config through it and judge the output quality on rules you know by heart. That is the point of it — evaluate on your real data before deciding whether the tool is worth anything to you.</p>
+
+  <h3>Honest limits</h3>
+  <ul>
+    <li>Five vendors. Juniper, Sophos and others are not supported.</li>
+    <li>VPN, certificates, dynamic routing, HA and App-ID/URL features are <em>reported for manual rebuild</em>, not converted. They are captured with their source lines so nothing vanishes quietly — but you will still rebuild them by hand.</li>
+    <li>A converted config is a starting point for a change window, not something to paste into production unreviewed. No migration tool changes that, including the vendor ones.</li>
+  </ul>
+
+  <h3>Run it</h3>
+
+  <pre><code>git clone https://github.com/nizartuanku/ruleforge
+cd ruleforge
+go build ./cmd/ruleforge &amp;&amp; ./ruleforge
+# dashboard on http://127.0.0.1:8428</code></pre>
+
+  <p>Upload a config, pick the target vendor, walk the four steps.</p>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/nizartuanku/ruleforge">Source on GitHub</a>
+    <a class="btn" href="index.html">Other Sentinel tools</a>
+  </div>
+
+  <div class="note">
+    <p>Paid editions are on <a href="https://whop.com/ruleforge?utm_source=github_pages&amp;utm_medium=expedition_page">Whop</a>. Licensing is offline Ed25519 — a key activates locally and nothing ever phones home, in either edition. An expired key never disables anything you already converted; it returns the tool to free limits.</p>
+  </div>
+
+  <h2>Sources</h2>
+  <ul>
+    <li><a href="https://live.paloaltonetworks.com/t5/expedition-articles/important-update-end-of-life-announcement-for-palo-alto-networks/ta-p/589642">Important Update: End of Life Announcement for Palo Alto Networks Expedition</a> — Palo Alto Networks LIVEcommunity</li>
+    <li><a href="https://live.paloaltonetworks.com/t5/expedition/ct-p/migration_tool">Expedition board</a> — Palo Alto Networks LIVEcommunity</li>
+    <li><a href="https://community.cisco.com/t5/security-knowledge-base/firewall-migration-tool-fmt-faq/ta-p/5219833">Firewall Migration Tool (FMT) FAQ</a> — Cisco Community</li>
+  </ul>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Sentinel — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
+    <p>Free editions are Apache-2.0 on GitHub. No telemetry in any edition.</p>
+  </div>
+</footer>
+
+</body>
+</html>
