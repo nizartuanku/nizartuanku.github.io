@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cisco ASA to Palo Alto migration — the mapping, the traps, and a free converter | Sentinel</title>
+<meta name="description" content="How ASA concepts map onto PAN-OS, why a literal rule translation silently breaks traffic, how to handle twice-NAT and App-ID, and a free self-hosted converter that runs offline.">
+<link rel="canonical" href="https://nizartuanku.github.io/cisco-asa-to-palo-alto.html">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="Cisco ASA to Palo Alto migration — the mapping and the traps">
+<meta property="og:description" content="Security levels have no PAN-OS equivalent. That single fact breaks more migrations than anything else.">
+<meta property="og:type" content="article">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">sentinel</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="expedition-alternative.html">After Expedition</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">Firewall migration</p>
+  <h1>Cisco ASA to Palo Alto: the mapping, and the traps</h1>
+
+  <p class="lede">Most ASA to PAN-OS migrations do not fail on the rules. They fail on the traffic the ASA was permitting that was never written as a rule at all. This page covers the concept mapping, the four places it breaks, and how to sequence the work so the change window is boring.</p>
+
+  <p class="meta">Written by a network security engineer · last reviewed 20 August 2026</p>
+
+  <div class="warn">
+    <p><strong>If you were going to use Expedition:</strong> Palo Alto ended support for it in January 2025 and the supported replacement for config migration is a paid professional services engagement. <a href="expedition-alternative.html">The full picture is here.</a></p>
+  </div>
+
+  <h2>The concept mapping</h2>
+
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>ASA</th><th>PAN-OS</th><th>Where it gets awkward</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>nameif</code> interface</td>
+        <td>Zone</td>
+        <td>Not one-to-one. Several ASA interfaces often belong in one zone, and one ASA interface sometimes needs splitting.</td>
+      </tr>
+      <tr>
+        <td><code>security-level</code></td>
+        <td class="n">no equivalent</td>
+        <td>The single biggest trap. See below.</td>
+      </tr>
+      <tr>
+        <td><code>object network</code> / <code>object-group network</code></td>
+        <td>Address object / address group</td>
+        <td>Mostly clean. Watch name character rules and length limits.</td>
+      </tr>
+      <tr>
+        <td><code>object-group service</code></td>
+        <td>Service object / service group</td>
+        <td>Clean, but see the App-ID section — a literal port translation leaves value on the table.</td>
+      </tr>
+      <tr>
+        <td><code>access-list</code> + <code>access-group</code></td>
+        <td>Security policy rule</td>
+        <td>ASA binds an ACL to one interface and direction. PAN-OS rules carry source <em>and</em> destination zone. The rewrite is real work.</td>
+      </tr>
+      <tr>
+        <td>Auto NAT (<code>object nat</code>)</td>
+        <td>NAT rule</td>
+        <td>Usually converts cleanly.</td>
+      </tr>
+      <tr>
+        <td>Manual / twice NAT (<code>nat (in,out) source … destination …</code>)</td>
+        <td>NAT rule</td>
+        <td>No single clean equivalent. Convert by hand and verify each one.</td>
+      </tr>
+      <tr>
+        <td>Implicit inbound deny</td>
+        <td><code>interzone-default</code> deny</td>
+        <td>Same outcome, different mechanism.</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Trap 1 — security levels are not written down anywhere</h2>
+
+  <p>On an ASA, traffic from a higher security level to a lower one is permitted by default. Nobody wrote a rule for it. It is a property of the platform.</p>
+
+  <p>PAN-OS has no such concept. Inter-zone traffic is denied unless a rule permits it.</p>
+
+  <p>So if you translate the ASA rule set faithfully — every ACL line becomes a security policy rule — you will have <strong>correctly migrated every rule and still broken production</strong>, because a large part of what the ASA allowed was never a rule.</p>
+
+  <div class="note">
+    <p><strong>What to do.</strong> Before the change window, take a traffic sample from the live ASA — connection table, NetFlow, syslog for permitted sessions — and reconcile it against your translated rule set. Anything in the sample that your new policy would deny is a flow that lived on implicit permit. Those are the rules you have to write from scratch, and they do not exist in the config you are converting.</p>
+  </div>
+
+  <p>This is the check that decides whether the cut-over is quiet, and no converter can do it for you — it needs data from the running device, not the config file.</p>
+
+  <h2>Trap 2 — twice-NAT</h2>
+
+  <p>ASA's manual NAT translates source and destination in a single statement, evaluated in a section order that also interacts with auto NAT. PAN-OS expresses the same intent differently, and the ordering semantics do not carry over.</p>
+
+  <p>Convert NAT <em>last</em>, after interfaces, zones, objects and rules are settled, and verify every twice-NAT statement individually against the original. If you only hand-check one category in the whole migration, make it this one.</p>
+
+  <h2>Trap 3 — App-ID, and the temptation to skip it</h2>
+
+  <p>A literal conversion gives you a port-based policy on a platform whose main advantage is that it does not need one. That is a real loss — but converting to App-ID <em>during</em> the migration is how change windows overrun.</p>
+
+  <p>The sequence that works:</p>
+
+  <ol>
+    <li>Migrate port-based, faithfully. Cut over. Prove the network behaves.</li>
+    <li>Run in that state long enough to collect application traffic on the new device.</li>
+    <li>Convert rules to App-ID afterwards, in batches, with the data to back each change.</li>
+  </ol>
+
+  <p>Two changes at once means that when something breaks you cannot tell which change broke it.</p>
+
+  <h2>Trap 4 — what does not convert at all</h2>
+
+  <p>These need rebuilding by hand regardless of tooling. Plan the hours:</p>
+
+  <ul>
+    <li><strong>VPN</strong> — site-to-site and remote access. Crypto maps and IKE policies do not map onto PAN-OS constructs.</li>
+    <li><strong>Certificates</strong> — reissue or re-import; they do not travel with a config.</li>
+    <li><strong>Dynamic routing</strong> — OSPF/BGP configuration is rebuilt in the virtual router.</li>
+    <li><strong>HA</strong> — failover configuration is platform-specific.</li>
+    <li><strong>Identity integration</strong> — AD/LDAP, User-ID agents, authentication policy.</li>
+  </ul>
+
+  <p>The failure worth guarding against is not “this did not convert”. It is “this did not convert and nobody was told”. Keep an explicit list, with the source line each item came from.</p>
+
+  <h2>A converter that runs on your machine</h2>
+
+  <p>RuleForge parses an ASA <code>show running-config</code> into a vendor-neutral model and generates PAN-OS <code>set</code> commands — or a Panorama device-group variant. It runs offline as a single Go binary. Nothing is uploaded anywhere, because a firewall configuration is the most sensitive text file in your estate and it has no business leaving your network, including to me.</p>
+
+  <p>The pipeline mirrors the manual order above, deliberately:</p>
+
+  <ol>
+    <li><strong>Analyze</strong> — full inventory: interfaces including VLANs and port-channels, zones, objects, rules, all four NAT shapes, routes. VPN, certificates, dynamic routing, HA and App-ID features are captured with their source lines and reported for manual rebuild rather than dropped.</li>
+    <li><strong>Map</strong> — it proposes an interface-to-zone map with PAN-OS-legal names; you edit and approve it. Conversion never runs on an unseen map.</li>
+    <li><strong>Convert</strong> — object names preserved, literals wrapped in collision-safe helper objects, name transforms applied per PAN-OS character rules.</li>
+    <li><strong>Review</strong> — per-element outcomes and a before/after comparison per category. The generated config is re-parsed and diffed against the model, so verification is mechanical rather than a reading exercise.</li>
+  </ol>
+
+  <p>Every job produces a Conversion Process Report — every element and its outcome, as self-contained HTML that prints to PDF. That is the artefact your change board wants.</p>
+
+  <h3>What it does not do</h3>
+  <ul>
+    <li>It does not know what your ASA was permitting implicitly. Trap 1 is still yours.</li>
+    <li>It does not rebuild VPN, certificates, routing or HA — it reports them.</li>
+    <li>The free edition converts up to <strong>50 rules per job</strong> and is single-tenant. Full deep analysis for all five vendors is included, so you can judge output quality on rules you know by heart before deciding the tool is worth anything to you.</li>
+    <li>A converted config is the starting point for a change window, not something to paste into production unreviewed. That is true of the vendor tools too.</li>
+  </ul>
+
+  <h3>Run it</h3>
+
+  <pre><code>git clone https://github.com/nizartuanku/ruleforge
+cd ruleforge
+go build ./cmd/ruleforge &amp;&amp; ./ruleforge
+# dashboard on http://127.0.0.1:8428</code></pre>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/nizartuanku/ruleforge">Source on GitHub</a>
+    <a class="btn" href="expedition-alternative.html">The full migration landscape</a>
+  </div>
+
+  <div class="note">
+    <p>It converts between any two of Cisco ASA, Cisco FTD, PAN-OS, FortiGate and Check Point — so the same tool covers the reverse direction, and the estate you inherit next year. Paid editions are on <a href="https://whop.com/ruleforge?utm_source=github_pages&amp;utm_medium=asa_to_pan">Whop</a>; licensing is offline Ed25519 and nothing phones home in either edition.</p>
+  </div>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Sentinel — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
+    <p>Free editions are Apache-2.0 on GitHub. No telemetry in any edition.</p>
+  </div>
+</footer>
+
+</body>
+</html>
