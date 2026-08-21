@@ -163,10 +163,17 @@
 
   <h3>Run it</h3>
 
-  <pre><code>git clone https://github.com/nizartuanku/ruleforge
-cd ruleforge
-go build ./cmd/ruleforge &amp;&amp; ./ruleforge
+  <p>Grab the tarball and <code>SHA256SUMS</code> from the <a href="https://github.com/nizartuanku/ruleforge/releases">releases page</a>, then:</p>
+
+  <pre><code>sha256sum -c SHA256SUMS
+tar xzf ruleforge-free-*-linux-amd64.tar.gz
+cd ruleforge-*/ &amp;&amp; ./ruleforge
 # dashboard on http://127.0.0.1:8428</code></pre>
+
+  <p>Or build it yourself — one dependency, no build system:</p>
+
+  <pre><code>git clone https://github.com/nizartuanku/ruleforge
+cd ruleforge &amp;&amp; go build ./cmd/ruleforge &amp;&amp; ./ruleforge</code></pre>
 
   <p>Upload a config, pick the target vendor, walk the four steps.</p>
 
