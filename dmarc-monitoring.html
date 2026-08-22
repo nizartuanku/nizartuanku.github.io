@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DMARC monitoring and the road to p=reject — self-hosted | Sentinel</title>
+<meta name="description" content="Aggregate reports name every source sending as your domain, and almost nobody reads them. What RFC 9990 reports actually contain, how to read them by hand, and how to reach p=reject without losing real mail.">
+<link rel="canonical" href="https://nizartuanku.github.io/dmarc-monitoring.html">
+<link rel="stylesheet" href="style.css">
+<meta property="og:title" content="DMARC monitoring and the road to p=reject">
+<meta property="og:description" content="Every receiver will tell you who sends mail as your domain. The reports arrive as zipped XML in a mailbox nobody opens.">
+<meta property="og:type" content="article">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">sentinel</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="attack-surface-discovery.html">Attack surface</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">EMAIL AUTHENTICATION</p>
+  <h1>Everyone already told you who is spoofing your domain</h1>
+
+  <p class="lede">Every mailbox provider that receives mail claiming to be from your domain will send you a daily report naming every source that tried. The reports arrive as compressed XML in a mailbox nobody opens, so domains sit at <code>p=none</code> for years while the one dataset that answers &ldquo;is anyone impersonating us?&rdquo; goes unread.</p>
+
+  <p class="meta">Written by a network security engineer · last reviewed 22 August 2026</p>
+
+  <h2>Why so many domains are stuck at p=none</h2>
+
+  <p>In February 2024 Google, Yahoo and later Microsoft began requiring bulk senders — Google&rsquo;s threshold is 5,000 messages a day to Gmail — to publish SPF, DKIM <em>and</em> a DMARC record. A large number of organisations published one that week and have not touched it since.</p>
+
+  <p>The reason is in the requirement itself. Google&rsquo;s guideline states plainly that the enforcement policy <strong>can be set to <code>none</code></strong>. So the compliant minimum is a record that instructs receivers to do nothing differently. It satisfies the gatekeeper and blocks no spoofing at all.</p>
+
+  <p>That is not a criticism of the requirement — <code>p=none</code> is the correct place to start, because it turns on reporting without risking real mail. It is only a problem when it becomes the permanent state, which is what happens when nobody reads what the reporting produces.</p>
+
+  <div class="note">
+    <p><strong>The specification moved in 2026.</strong> DMARC is now <a href="https://www.rfc-editor.org/rfc/rfc9989.html">RFC 9989</a> (Proposed Standard, May 2026), which obsoletes the long-standing informational RFC 7489. Aggregate reporting is split into its own document, <a href="https://www.rfc-editor.org/rfc/rfc9990.html">RFC 9990</a>. Most DMARC material online still cites 7489.</p>
+  </div>
+
+  <h2>What changed in RFC 9989</h2>
+
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Change</th><th>What it means in practice</th></tr></thead>
+    <tbody>
+      <tr><td><code>pct</code> removed</td><td>The percentage rollout tag is gone. A new <code>t</code> tag expresses test mode instead. If you were planning a staged rollout with <code>pct=25</code>, that plan needs rewriting.</td></tr>
+      <tr><td><code>np</code> added</td><td>A separate policy for <em>non-existent</em> subdomains of the organizational domain — the ones attackers like, because nothing legitimate ever sends from them.</td></tr>
+      <tr><td><code>psd</code> added</td><td>Flags a record as belonging to a public suffix domain operator.</td></tr>
+      <tr><td>Tree walk replaces the PSL</td><td>Receivers now discover the organizational domain by walking DNS upward rather than consulting the Public Suffix List. One less external dependency in the evaluation path.</td></tr>
+      <tr><td>DKIM selector now required in reports</td><td>Aggregate reports must name the selector alongside the signing domain, which makes attributing a signature to a specific sending system materially easier.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><code>p</code> still takes the same three values, and <code>none</code> remains valid. Nothing in the new specification forces you off it — that decision stays yours, and stays evidence-based.</p>
+
+  <h2>What an aggregate report actually contains</h2>
+
+  <p>This is worth being precise about, because both the fear and the hope around DMARC reports are usually misplaced.</p>
+
+  <p><strong>Each record in the report carries:</strong> the connecting IP address, a message count, the disposition the receiver applied, the aligned SPF and DKIM results, the RFC5322.From domain, and the underlying authentication results including each DKIM signature&rsquo;s domain, selector and outcome.</p>
+
+  <p><strong>It does not carry:</strong> message content, subject lines, recipient addresses, or the mail addresses of individuals. RFC 9990 is explicit on this point. Aggregate reports are domain-level statistics, not copies of your mail.</p>
+
+  <p>So the report answers &ldquo;which systems sent mail as us, in what volume, and did it authenticate&rdquo; — and cannot answer &ldquo;what did that message say&rdquo; or &ldquo;who received it.&rdquo; Every practical use of DMARC monitoring follows from that boundary.</p>
+
+  <h3>Alignment is the part people skip</h3>
+
+  <p>An SPF pass is not a DMARC pass. SPF validates the envelope sender; DKIM validates whatever domain signed the message. DMARC additionally requires that the passing identifier <em>align</em> with the domain in the visible <code>From:</code> header.</p>
+
+  <p>This is precisely how a marketing platform can report healthy SPF while contributing nothing to your DMARC posture: it authenticates its own domain, not yours. In the aggregate report this appears as a source with an SPF pass and an alignment failure — a row that is easy to skim past and is usually the reason a domain cannot move off <code>p=none</code>.</p>
+
+  <h2>Reading them by hand</h2>
+
+  <p>For one domain and a handful of reporters this is entirely reasonable, and worth doing once even if you later automate it:</p>
+
+  <ol>
+    <li>Publish a record with a <code>rua=</code> address you control: <code>_dmarc.example.com. TXT "v=DMARC1; p=none; rua=mailto:dmarc@example.com"</code></li>
+    <li>Collect the attachments. They arrive daily, gzip-compressed, named <code>receiver!policy-domain!begin!end.xml.gz</code>.</li>
+    <li>Decompress and group every record by source IP. Sum the counts.</li>
+    <li>For each source, compute the share of messages with <strong>aligned</strong> SPF or DKIM — not raw pass rates.</li>
+    <li>Identify every source. This is the slow part, and the point of the exercise: each one is a system someone in your organisation set up, and the list is almost always longer than anyone expects.</li>
+    <li>Repeat weekly and diff, because the answer changes whenever someone signs up for a new SaaS.</li>
+  </ol>
+
+  <p>Steps 3 to 6 are where doing it by hand stops scaling — not because any single step is difficult, but because it has to happen every week, forever, and the week it gets skipped is the week a new source appears.</p>
+
+  <h3>The failure mode nobody watches for</h3>
+
+  <p>Reports that stop arriving look exactly like reports with nothing to report. A typo in <code>rua=</code>, a mailbox that filled up, an address belonging to someone who left — any of these produces a silence that reads as &ldquo;all clear.&rdquo;</p>
+
+  <p>It is the same shape as a detector that never fires. If your monitoring cannot distinguish <em>no findings</em> from <em>no data</em>, it is not monitoring.</p>
+
+  <h2>DmarcWatch</h2>
+
+  <p>Self-hosted DMARC aggregate report monitoring. Upload the report files exactly as they arrive — <code>.xml</code>, <code>.xml.gz</code> or <code>.zip</code> — and it reports who sends as your domain, which sources are failing alignment at volume, when a new source appears, and whether the evidence supports tightening your policy. Single Go binary, SQLite, no telemetry: your mail metadata stays on your machine, which matters because a complete list of your sending systems is a useful document to an attacker too.</p>
+
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Finding</th><th>Severity</th><th>Condition</th></tr></thead>
+    <tbody>
+      <tr><td><code>dmarc.spoofing</code></td><td>High</td><td>A source sent 10 or more messages failing both aligned SPF and DKIM</td></tr>
+      <tr><td><code>dmarc.new-source</code></td><td>Medium</td><td>A sending source appeared for the first time in the last 7 days</td></tr>
+      <tr><td><code>dmarc.alignment-drop</code></td><td>Medium</td><td>This week&rsquo;s aligned rate is 10 or more points below the 30-day average</td></tr>
+      <tr><td><code>dmarc.no-reports</code></td><td>Medium</td><td>No reports for 7 days or more — collection itself is broken</td></tr>
+      <tr><td><code>dmarc.policy</code></td><td>Low</td><td><code>p=none</code> in force, with a direct answer to whether tightening is safe yet</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The readiness call is the one that decides whether a domain ever leaves <code>p=none</code>: when alignment holds at 98% or better across multiple independent reporters, the evidence supports moving to <code>p=quarantine</code>, and from there to <code>p=reject</code>. That is a threshold you can argue with — but it is stated, and the data behind it is on screen.</p>
+
+  <h3>Run it</h3>
+
+  <p>Grab the tarball and <code>SHA256SUMS</code> from the <a href="https://github.com/nizartuanku/dmarcwatch/releases">releases page</a>, then:</p>
+
+  <pre><code>sha256sum -c SHA256SUMS
+tar -xzf dmarcwatch-free-*-linux-amd64.tar.gz
+./dmarcwatch
+# dashboard on http://127.0.0.1:8429 — add your domain, upload reports</code></pre>
+
+  <div class="actions">
+    <a class="btn primary" href="https://github.com/nizartuanku/dmarcwatch">Source on GitHub</a>
+    <a class="btn" href="index.html">Other Sentinel tools</a>
+  </div>
+
+  <h3>Honest limits</h3>
+  <ul>
+    <li>Ingestion is upload-only in v0. There is no IMAP polling yet, so getting the files out of the mailbox is still a manual step.</li>
+    <li>Aggregate reports only. No forensic (RUF) reports, and no enrichment of source IPs.</li>
+    <li>The thresholds — 10 messages for spoofing, 98% for readiness — are fixed in v0. If they do not suit your domain, they are not yet yours to change.</li>
+    <li>Analysis windows are 7 and 30 days.</li>
+    <li>It reads reports; it does not change DNS. Moving to <code>p=quarantine</code> is your edit, through your change process.</li>
+  </ul>
+
+  <div class="note">
+    <p>DMARC findings can be emitted as RFC 3164 syslog, so a spoofing finding can land in the same incident timeline as everything else: <a href="lightweight-self-hosted-siem.html">lightweight self-hosted SIEM</a>.</p>
+  </div>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Sentinel — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
+    <p>Free editions are Apache-2.0 on GitHub. No telemetry in any edition.</p>
+  </div>
+</footer>
+
+</body>
+</html>
