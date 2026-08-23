@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lightweight self-hosted SIEM — correlation without the ingest bill | Sentinel</title>
+<title>Lightweight self-hosted SIEM — correlation without the ingest bill | Hexward</title>
 <meta name="description" content="Why small SIEM deployments fail, how a detector can stop firing without erroring, an honest comparison with Wazuh, Graylog, Security Onion and ELK, and a single-binary alternative.">
 <link rel="canonical" href="https://nizartuanku.github.io/lightweight-self-hosted-siem.html">
 <link rel="stylesheet" href="style.css">
@@ -113,7 +113,7 @@
 
   <p>Ingests syslog, plain files, journald, Docker and Windows events. Detects brute force, scanning, exfiltration patterns and new-admin events, and correlates them into kill-chain incidents. One binary, SQLite storage, embedded UI. No telemetry, no outbound connections.</p>
 
-  <p>Every other Sentinel tool can emit findings as RFC 3164 syslog, so a <a href="thinkst-canary-alternative.html">Decoy</a> trip from an address Loglight already saw scanning becomes one critical incident with the timeline attached, rather than two alerts you have to join up yourself. There is nothing Sentinel-specific about the format — any collector works.</p>
+  <p>Every other Hexward tool can emit findings as RFC 3164 syslog, so a <a href="thinkst-canary-alternative.html">Decoy</a> trip from an address Loglight already saw scanning becomes one critical incident with the timeline attached, rather than two alerts you have to join up yourself. There is nothing Hexward-specific about the format — any collector works.</p>
 
   <h3>Run it</h3>
 
@@ -126,7 +126,7 @@ tar -xzf loglight-free-*-linux-amd64.tar.gz
 
   <div class="actions">
     <a class="btn primary" href="https://github.com/nizartuanku/loglight">Source on GitHub</a>
-    <a class="btn" href="index.html">Other Sentinel tools</a>
+    <a class="btn" href="index.html">Other Hexward tools</a>
   </div>
 
   <h3>Honest limits</h3>
@@ -145,7 +145,7 @@ tar -xzf loglight-free-*-linux-amd64.tar.gz
 
 <footer class="bottom">
   <div class="wrap">
-    <p>Sentinel — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
+    <p>Hexward — self-hosted security tools by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>, a practising network security engineer.</p>
     <p>Free editions are Apache-2.0 on GitHub. No telemetry in any edition.</p>
   </div>
 </footer>
