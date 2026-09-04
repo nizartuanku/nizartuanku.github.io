@@ -85,6 +85,21 @@
       <p>Network monitoring with a live LLDP topology map — and when a switch dies, everything behind it folds under the one root cause instead of paging you thirty times. 0.4 adds NetFlow/IPFIX/sFlow, MAC/ARP endpoints, BGP/OSPF/STP state, wireless (UniFi, Meraki, Cisco WLC, Aruba), SD-WAN health, SSH config backup with diff, probes, reports, a 2–5 node cluster and a gNMI beta. One static binary.</p>
     </div>
 
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/tenantwatch">TenantWatch</a></h3>
+      <p>Read-only Microsoft 365 and Google Workspace posture — accounts without MFA, over-permissioned OAuth apps, mailboxes forwarding outside the org. Since 0.2 it also reads the sign-in log: legacy authentication that actually succeeded, an admin who signed in with a password alone, a password spray that landed.</p>
+    </div>
+
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/posture-report">Posture Report</a></h3>
+      <p>Reads every other tool's findings, read-only, and folds them into one posture score with an executive page and a technical page. It runs no scans of its own and changes nothing — it answers "how are we doing, and what do we fix first" on paper an auditor accepts.</p>
+    </div>
+
+    <div class="card">
+      <h3><a href="https://github.com/nizartuanku/auditlight">AuditLight</a></h3>
+      <p>Security assessment that never exploits — no brute force, no denial of service, no fuzzing — so it is safe to point at production. Three reports: the assessment you hand over, the process report naming every check attempted and every target skipped with its reason, and the change report that shows whether the fixes held.</p>
+    </div>
+
   </div>
 
   <p>Every tool can emit its findings as RFC 3164 syslog, which is how they feed each other — or feed whatever collector you already run. There is nothing Hexward-specific about the format.</p>
