@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FMC/FTD Health Check — what to send and how to sanitize it | Hexward Labs</title>
+<meta name="description" content="Preparation guide for the Hexward Labs FMC/FTD Health Check & Upgrade Readiness Review: the exports to collect, how to remove secrets, and how to send them.">
+<link rel="canonical" href="https://nizartuanku.github.io/prep-fmc-ftd-health-check.html">
+<link rel="stylesheet" href="style.css">
+<meta name="robots" content="noindex">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">Hexward Labs</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="prep-migration-review.html">Migration review prep</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">Customer guide</p>
+  <h1>FMC/FTD Health Check: what to send</h1>
+
+  <p class="lede">Thank you for your order. This page lists the exports we need for the review, how to remove secrets before you share them, and what happens next. Collecting everything usually takes 20 to 30 minutes.</p>
+
+  <p class="meta">Applies to Secure Firewall Management Center (FMC) 7.x with managed FTD devices · scope: 1 FMC and up to 4 FTD devices</p>
+
+  <h2>Ground rules</h2>
+  <ul>
+    <li><b>Never send passwords, keys, certificates with private keys, or remote access.</b> We do not log in to your systems. The review uses only the files you choose to share.</li>
+    <li>Read-only commands only. Nothing on this page changes your configuration.</li>
+    <li>Menu paths can differ slightly between FMC releases. If a menu is not where we say, use the closest equivalent and tell us in the chat.</li>
+  </ul>
+
+  <h2>1. From the FMC (screenshots or exports)</h2>
+  <ol>
+    <li><b>FMC version:</b> Help &gt; About.</li>
+    <li><b>Managed devices:</b> Devices &gt; Device Management. A screenshot or CSV showing each device's model, software version, and HA or cluster membership.</li>
+    <li><b>Content versions:</b> System &gt; Updates. The installed VDB, rule update (SRU/LSP) and geolocation versions.</li>
+    <li><b>Health:</b> System &gt; Health &gt; Monitor. A screenshot of the summary, plus any device that shows a warning or critical alert.</li>
+    <li><b>Access control policy report:</b> Policies &gt; Access Control, then the report icon next to each deployed policy. The PDF report.</li>
+    <li><b>Backups:</b> System &gt; Tools &gt; Backup/Restore. A screenshot of the backup list with dates.</li>
+    <li><b>Licensing:</b> System &gt; Licenses &gt; Smart Licenses. A screenshot of the status page.</li>
+  </ol>
+
+  <h2>2. From each FTD device (CLI)</h2>
+  <p>Connect to the device console or SSH (the normal FTD CLI, not expert mode) and save the output of these commands to one text file per device:</p>
+<pre>show version
+show managers
+show failover
+show cluster info
+show interface ip brief
+show cpu usage
+show memory
+show conn count
+show access-control-config
+show running-config</pre>
+  <p>If a command returns an error on your release, leave it out and continue. A missing line is fine; a guessed one is not.</p>
+
+  <h2>3. Remove secrets before you send</h2>
+  <p>FTD masks most secrets in <code>show running-config</code>, but check before you share. Search each file for these words and replace the value after them with <code>REMOVED</code>:</p>
+<pre>pre-shared-key   key   password   secret
+community        authentication   ldap-login-password
+username         enable</pre>
+  <p>Optional: if you do not want to share real public IP addresses, replace each one with a consistent placeholder (for example <code>PUBLIC-IP-1</code>). Use the same placeholder everywhere the same address appears, so the review still makes sense.</p>
+
+  <h2>4. How to send it</h2>
+  <ol>
+    <li>Put everything in one ZIP file named after your company or project.</li>
+    <li>Open the support chat on Whop and attach the ZIP, or ask there for a private upload link if the file is too large.</li>
+    <li>Tell us your target FMC/FTD release, if you already have one in mind.</li>
+  </ol>
+
+  <h2>What happens next</h2>
+  <ul>
+    <li>We confirm the files are complete within one business day, or tell you exactly what is missing.</li>
+    <li>You receive the PDF report and upgrade runbook within 5 business days of a complete set.</li>
+    <li>You can ask up to 10 follow-up questions in writing within 14 days of delivery.</li>
+    <li>Your files are deleted within 30 days of delivery.</li>
+  </ul>
+
+  <div class="note">
+    <p>Independent service by Hexward Labs. Not affiliated with or endorsed by Cisco Systems; product names describe compatibility only. Advisory review: you stay in control of every change in your environment.</p>
+  </div>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Hexward Labs — Cybersecurity tools + AI by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>.</p>
+  </div>
+</footer>
+
+</body>
+</html>

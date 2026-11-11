@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Firewall Migration Config Review — what to send and how to sanitize it | Hexward Labs</title>
+<meta name="description" content="Preparation guide for the Hexward Labs Firewall Migration Config Review: which source and target exports to collect per vendor, how to remove secrets, and how to send them.">
+<link rel="canonical" href="https://nizartuanku.github.io/prep-migration-review.html">
+<link rel="stylesheet" href="style.css">
+<meta name="robots" content="noindex">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="index.html">Hexward Labs</a>
+    <nav>
+      <a href="index.html">Tools</a>
+      <a href="prep-fmc-ftd-health-check.html">Health check prep</a>
+      <a href="https://github.com/nizartuanku">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <p class="kicker">Customer guide</p>
+  <h1>Firewall Migration Config Review: what to send</h1>
+
+  <p class="lede">Thank you for your order. We need two things: the configuration you are migrating from, and the configuration you plan to cut over to. This page shows how to export both per vendor and how to remove secrets first.</p>
+
+  <p class="meta">Scope: one migration, one source and one target device or context, up to 2,000 rules</p>
+
+  <h2>Ground rules</h2>
+  <ul>
+    <li><b>Never send passwords, keys, certificates with private keys, or remote access.</b> We do not log in to your systems.</li>
+    <li>Analysis runs offline on our own machine. Your files are deleted within 30 days of delivery.</li>
+    <li>Export the configuration exactly as it runs. Please do not edit rules by hand before sending, apart from removing secrets.</li>
+  </ul>
+
+  <h2>1. Export the source and the target</h2>
+  <table>
+    <tr><th>Platform</th><th>What to export</th></tr>
+    <tr><td>Cisco ASA</td><td><code>show running-config</code> as a text file. Multi-context: one file per context you are migrating.</td></tr>
+    <tr><td>Cisco FTD (FMC-managed)</td><td><code>show running-config</code> from the device CLI, plus the access control policy report PDF from FMC (Policies &gt; Access Control, report icon).</td></tr>
+    <tr><td>Palo Alto PAN-OS</td><td>Device &gt; Setup &gt; Operations &gt; Export named configuration snapshot (running-config.xml). With Panorama, export the Panorama configuration as well and tell us the device group.</td></tr>
+    <tr><td>FortiGate</td><td>System &gt; Configuration &gt; Backup (unencrypted). With VDOMs, tell us which VDOM is in scope.</td></tr>
+    <tr><td>Check Point</td><td>An export of the policy package and its objects (for example with Show Package Tool). Tell us the package name.</td></tr>
+  </table>
+  <p>If you converted with a tool (RuleForge, the vendor's migration tool or another), include its conversion report too. It helps us see what the tool already flagged.</p>
+
+  <h2>2. Remove secrets before you send</h2>
+  <p>Search each file for the items below and replace the value with <code>REMOVED</code>. Keep the line itself, so the structure stays intact.</p>
+  <table>
+    <tr><th>Platform</th><th>Look for</th></tr>
+    <tr><td>Cisco ASA / FTD</td><td><code>pre-shared-key</code>, <code>key</code>, <code>password</code>, <code>secret</code>, <code>community</code>, <code>ldap-login-password</code></td></tr>
+    <tr><td>PAN-OS (XML)</td><td><code>&lt;phash&gt;</code>, <code>&lt;private-key&gt;</code>, <code>&lt;pre-shared-key&gt;</code>, <code>&lt;secret&gt;</code>, <code>&lt;password&gt;</code></td></tr>
+    <tr><td>FortiGate</td><td>Every value starting with <code>ENC</code>, plus <code>set psksecret</code>, <code>set password</code>, <code>set passwd</code>, and certificate private keys</td></tr>
+    <tr><td>Check Point</td><td>Any shared secrets or pre-shared keys present in the export</td></tr>
+  </table>
+  <p>Optional: replace real public IP addresses with consistent placeholders (for example <code>PUBLIC-IP-1</code>), using the same placeholder for the same address in both files.</p>
+
+  <h2>3. How to send it</h2>
+  <ol>
+    <li>Put the source file, the target file and any conversion report in one ZIP file.</li>
+    <li>Open the support chat on Whop and attach the ZIP, or ask there for a private upload link if the file is too large.</li>
+    <li>Tell us the source and target platforms and versions (you already gave these at checkout; correct them if anything changed).</li>
+  </ol>
+
+  <h2>What happens next</h2>
+  <ul>
+    <li>We confirm the files are complete within one business day, or tell you exactly what is missing.</li>
+    <li>You receive the PDF report with risk-ranked findings, the cut-over checklist and verification tests within 5 business days of a complete set.</li>
+    <li>You can ask up to 10 follow-up questions in writing within 14 days of delivery.</li>
+  </ul>
+
+  <div class="note">
+    <p>Independent service by Hexward Labs. Not affiliated with or endorsed by Cisco, Palo Alto Networks, Fortinet or Check Point; product names describe compatibility only. Advisory review: you stay in control of every change in your environment.</p>
+  </div>
+
+</main>
+
+<footer class="bottom">
+  <div class="wrap">
+    <p>Hexward Labs — Cybersecurity tools + AI by <a href="https://github.com/nizartuanku">Nizar Tuanku</a>.</p>
+  </div>
+</footer>
+
+</body>
+</html>
